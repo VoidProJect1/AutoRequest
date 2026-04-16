@@ -41,9 +41,9 @@ from telethon.tl.types import (
 # ───────────────────────────────────────────────────────────
 #  ⚠️  FILL IN ALL THREE VALUES BEFORE RUNNING
 # ───────────────────────────────────────────────────────────
-BOT_TOKEN  = "8640193742:AAFwgUguYonSgGr_sach4p0qa5-MkgmBQjY"   # ← from @BotFather
-API_ID     =  22153308                     # ← integer, e.g. 12345678
-API_HASH   = "a8a7886b4375d7c46149794a626dadcc"                       # ← string from my.telegram.org
+BOT_TOKEN  = "8640193742:AAFTKZ8M83gK0yKpL4Fz2SdyPu7IvGb8Mh4"   # ← from @BotFather
+API_ID     = 20092501                        # ← integer, e.g. 12345678
+API_HASH   = "f47e539994d2dac45eac6d22af6328e3"                       # ← string from my.telegram.org
 ADMIN_PASS = "Void#123"               # ← change to your own password
 # ───────────────────────────────────────────────────────────
 
