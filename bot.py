@@ -42,9 +42,9 @@ from telethon.tl.types import (
 # ───────────────────────────────────────────────────────────
 #  ⚠️  FILL IN YOUR VALUES BELOW BEFORE RUNNING
 # ───────────────────────────────────────────────────────────
-BOT_TOKEN  = "YOUR_BOT_TOKEN_HERE"   # ← from @BotFather
-API_ID     = 0                        # ← integer from my.telegram.org
-API_HASH   = ""                       # ← string from my.telegram.org
+BOT_TOKEN  = "8640193742:AAFTKZ8M83gK0yKpL4Fz2SdyPu7IvGb8Mh4"   # ← from @BotFather
+API_ID     = 35044825                       # ← integer from my.telegram.org
+API_HASH   = "7bbf4ceac8e0134bd9ef8f046116b4f9"                       # ← string from my.telegram.org
 ADMIN_PASS = "Void#123"               # ← change to your own password
 # ───────────────────────────────────────────────────────────
 
