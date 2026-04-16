@@ -2,12 +2,12 @@
 ╔══════════════════════════════════════════════════════════════╗
 ║    🤖  CHANNEL JOIN REQUEST MANAGER BOT  (Pure Telethon)    ║
 ║   ─────────────────────────────────────────────────────      ║
-║   ✅  Python 3.9 Compatible — No errors                     ║
+║   ✅  One library — no Pyrogram conflicts                    ║
 ║   📋  Use /admin to access the admin panel                   ║
 ║   🔐  Default Password: Void#123                             ║
 ╚══════════════════════════════════════════════════════════════╝
 
-INSTALL:
+INSTALL (once):
     pip install telethon
 
 FILL IN before running:
@@ -21,7 +21,6 @@ import json
 import os
 import logging
 from datetime import datetime
-from typing import Optional
 
 from telethon import TelegramClient, events, Button
 from telethon.sessions import StringSession
@@ -40,11 +39,11 @@ from telethon.tl.types import (
 )
 
 # ───────────────────────────────────────────────────────────
-#  ⚠️  FILL IN YOUR VALUES BELOW BEFORE RUNNING
+#  ⚠️  FILL IN ALL THREE VALUES BEFORE RUNNING
 # ───────────────────────────────────────────────────────────
-BOT_TOKEN  = "8640193742:AAFTKZ8M83gK0yKpL4Fz2SdyPu7IvGb8Mh4"   # ← from @BotFather
-API_ID     = 35044825                       # ← integer from my.telegram.org
-API_HASH   = "7bbf4ceac8e0134bd9ef8f046116b4f9"                       # ← string from my.telegram.org
+BOT_TOKEN  = "8640193742:AAFwgUguYonSgGr_sach4p0qa5-MkgmBQjY"   # ← from @BotFather
+API_ID     = 20092501                        # ← integer, e.g. 12345678
+API_HASH   = "f47e539994d2dac45eac6d22af6328e3"                       # ← string from my.telegram.org
 ADMIN_PASS = "Void#123"               # ← change to your own password
 # ───────────────────────────────────────────────────────────
 
@@ -98,29 +97,30 @@ def save_data():
 DB = load_data()
 
 # ── In-memory state ───────────────────────────────────────
-STATE         = {}
-PENDING       = {}
-USERBOT_SETUP = {}
+STATE         = {}   # uid → state string
+PENDING       = {}   # uid → {"text":, "photo_path":, "audio_path":}
+USERBOT_SETUP = {}   # uid → setup dict
 
-# ── Clients ───────────────────────────────────────────────
-bot     = TelegramClient("bot_session", API_ID, API_HASH)
-userbot = None
+# ── Clients (created at module level so decorators work) ──
+bot:     TelegramClient = TelegramClient("bot_session", API_ID, API_HASH)
+userbot: TelegramClient = None
 
 # ── Helpers ───────────────────────────────────────────────
-def is_admin(uid):
+def is_admin(uid: int) -> bool:
     return uid in DB.get("admin_sessions", [])
 
-def toggle_str(v):
+def toggle_str(v: bool) -> str:
     return "✅ ON" if v else "❌ OFF"
 
-def now_str():
+def now_str() -> str:
     return datetime.now().strftime("%d %b %Y  %H:%M")
 
-def media_filename(uid, kind, ext):
+def media_filename(uid: int, kind: str, ext: str) -> str:
     ts = int(datetime.now().timestamp())
     return os.path.join(MEDIA_DIR, f"{kind}_{uid}_{ts}.{ext}")
 
-def peer_to_full_id(peer):
+# ── Peer → full int ID (e.g. -1001234567890) ─────────────
+def peer_to_full_id(peer) -> int | None:
     if isinstance(peer, PeerChannel):
         return -(1_000_000_000_000 + peer.channel_id)
     if isinstance(peer, PeerChat):
@@ -132,11 +132,11 @@ def admin_keyboard():
     auto  = DB.get("auto_accept", False)
     ub    = DB.get("userbot", {})
     ub_ok = bool(ub.get("session") and userbot)
-    lbl   = "🔄  Update Userbot (Admin Sender)" if ub_ok else "👤  Setup Userbot (Admin Sender) ⚠️"
+    lbl   = "🔄  Update Userbot (Admin Sender)" if ub_ok else "👤  Setup Userbot (Admin Sender) ⚠️ Required"
     return [
-        [Button.inline("📢  Set Channel", b"set_channel")],
+        [Button.inline("📢  Set Channel",                    b"set_channel")],
         [Button.inline(
-            "🔄  Auto Accept — ON ✅" if auto else "🔄  Auto Accept — OFF ❌",
+            f"🔄  Auto Accept — {'ON ✅' if auto else 'OFF ❌'}",
             b"toggle_auto",
         )],
         [
@@ -144,15 +144,15 @@ def admin_keyboard():
             Button.inline("📋  View Messages", b"view_msgs"),
         ],
         [Button.inline("🗑️  Clear All Messages", b"clear_msgs")],
-        [Button.inline(lbl, b"setup_userbot")],
-        [Button.inline("🗑️  Remove Userbot", b"remove_userbot")],
+        [Button.inline(lbl,                      b"setup_userbot")],
+        [Button.inline("🗑️  Remove Userbot",     b"remove_userbot")],
         [
             Button.inline("🔄  Refresh", b"refresh"),
             Button.inline("🚪  Logout",  b"logout"),
         ],
     ]
 
-async def show_admin_panel(uid):
+async def show_admin_panel(uid: int):
     ch    = DB.get("channel_title") or "❗ Not Set"
     cid   = DB.get("channel_id")    or "—"
     auto  = DB.get("auto_accept", False)
@@ -168,8 +168,7 @@ async def show_admin_panel(uid):
         f"🆔 **Channel ID:** `{cid}`\n"
         f"🤖 **Auto Accept:** {toggle_str(auto)}\n"
         f"📨 **Saved Messages:** {nmsg}\n"
-        f"👤 **Userbot (Primary Sender):** "
-        f"{'✅ Active — sends as channel admin' if ub_ok else '❌ Not Set (bot fallback only)'}\n\n"
+        f"👤 **Userbot (Primary Sender):** {'✅ Active — sends as channel admin' if ub_ok else '❌ Not Set (bot fallback only)'}\n\n"
         "📊 **STATISTICS**\n"
         "──────────────────────────\n"
         f"👥 **Bot Users:** {len(st.get('started_users', []))}\n"
@@ -182,7 +181,7 @@ async def show_admin_panel(uid):
     await bot.send_message(uid, text, buttons=admin_keyboard())
 
 # ── Userbot helpers ───────────────────────────────────────
-async def start_userbot():
+async def start_userbot() -> bool:
     global userbot
     ub = DB.get("userbot", {})
     if not (ub.get("session") and ub.get("api_id") and ub.get("api_hash")):
@@ -200,13 +199,39 @@ async def start_userbot():
             return False
         me = await client.get_me()
         userbot = client
-        log.info("✅ Userbot ready: @%s (%s)", me.username, me.id)
+        log.info(f"✅ Userbot ready: @{me.username} ({me.id})")
         return True
     except Exception as e:
-        log.error("Userbot start failed: %s", e)
+        log.error(f"Userbot start failed: {e}")
         return False
 
-async def _finish_userbot_session(uid, tg, setup):
+async def userbot_send(
+    uid: int,
+    text: str = "",
+    photo_path: str = None,
+    audio_path: str = None,
+) -> bool:
+    global userbot
+    if not userbot:
+        return False
+    try:
+        if photo_path and os.path.exists(photo_path):
+            await userbot.send_file(uid, photo_path, caption=text or "")
+        elif text:
+            await userbot.send_message(uid, text)
+
+        if audio_path and os.path.exists(audio_path):
+            await userbot.send_file(
+                uid, audio_path,
+                voice_note=audio_path.endswith(".ogg"),
+            )
+        return True
+    except Exception as e:
+        log.warning(f"Userbot DM failed → {uid}: {e}")
+        return False
+
+async def _finish_userbot_session(uid: int, tg: TelegramClient, setup: dict):
+    """Save session and activate userbot after successful login."""
     global userbot
     STATE.pop(uid, None)
     USERBOT_SETUP.pop(uid, None)
@@ -219,26 +244,29 @@ async def _finish_userbot_session(uid, tg, setup):
             "phone":    setup.get("phone", ""),
         }
         save_data()
+
         if userbot and userbot is not tg:
             try:
                 await userbot.disconnect()
             except Exception:
                 pass
         userbot = tg
+
         me   = await tg.get_me()
-        name = (f"{me.first_name or ''} {me.last_name or ''}").strip()
+        name = f"{me.first_name or ''} {me.last_name or ''}".strip()
         await bot.send_message(
             uid,
             f"✅ **Userbot Setup Complete!**\n\n"
             f"👤 **Account:** {name}\n"
             f"🆔 **ID:** `{me.id}`\n"
             f"📱 **Username:** @{me.username or 'N/A'}\n\n"
-            "Messages will now be sent from this account.\n"
+            "This account will DM channel members on the bot's behalf.\n"
             "⚠️ Make sure this account is also **admin** in your channel.",
         )
         await show_admin_panel(uid)
     except Exception as e:
         await bot.send_message(uid, f"❌ Failed to save session: `{e}`")
+
 
 # ═══════════════════════════════════════════════════════════
 #  BOT EVENT HANDLERS
@@ -279,6 +307,7 @@ async def on_text(event):
     uid  = event.sender_id
     text = event.text.strip()
 
+    # Ignore bot commands handled elsewhere
     if text.startswith("/start") or text.startswith("/admin"):
         return
 
@@ -294,11 +323,13 @@ async def on_text(event):
             await event.respond("✅ **Access granted! Welcome, Admin 👑**")
             await show_admin_panel(uid)
         else:
-            await event.respond("❌ **Wrong password.**\nUse /admin to try again.")
+            await event.respond(
+                "❌ **Wrong password.**\nUse /admin to try again.",
+            )
         return
 
     if not is_admin(uid):
-        return
+        return   # ignore non-admin messages
 
     # ── Set channel ───────────────────────────────────────
     if st == "set_channel":
@@ -307,6 +338,10 @@ async def on_text(event):
             entity = await bot.get_entity(
                 int(text) if text.lstrip("-").isdigit() else text
             )
+            full_id = peer_to_full_id(
+                PeerChannel(entity.id) if hasattr(entity, "megagroup") else PeerChat(entity.id)
+            ) or entity.id
+            # Telethon get_entity returns the real signed ID directly
             DB["channel_id"]    = entity.id
             DB["channel_title"] = getattr(entity, "title", text)
             save_data()
@@ -335,6 +370,7 @@ async def on_text(event):
         )
         return
 
+    # ── Skip photo ────────────────────────────────────────
     if st == "add_photo" and text.lower() in ("/skip", "skip"):
         STATE[uid] = "add_audio"
         await event.respond(
@@ -342,6 +378,7 @@ async def on_text(event):
         )
         return
 
+    # ── Skip audio ────────────────────────────────────────
     if st == "add_audio" and text.lower() in ("/skip", "skip"):
         STATE.pop(uid, None)
         msg_obj = PENDING.pop(uid, None)
@@ -354,15 +391,19 @@ async def on_text(event):
 
     # ══ Userbot setup flow ════════════════════════════════
 
+    # Step 1 — API ID
     if st == "ub_api_id":
         if not text.isdigit():
             await event.respond("❌ API ID must be a **number**. Please try again:")
             return
         USERBOT_SETUP[uid] = {"api_id": int(text)}
         STATE[uid] = "ub_api_hash"
-        await event.respond("🔑 **Step 2 / 4 — API Hash**\n\nSend your **API Hash** string:")
+        await event.respond(
+            "🔑 **Step 2 / 4 — API Hash**\n\nSend your **API Hash** string:",
+        )
         return
 
+    # Step 2 — API Hash
     if st == "ub_api_hash":
         USERBOT_SETUP.setdefault(uid, {})["api_hash"] = text
         STATE[uid] = "ub_phone"
@@ -372,6 +413,7 @@ async def on_text(event):
         )
         return
 
+    # Step 3 — Phone → send OTP
     if st == "ub_phone":
         setup = USERBOT_SETUP.get(uid, {})
         if not setup.get("api_id") or not setup.get("api_hash"):
@@ -397,15 +439,20 @@ async def on_text(event):
         except Exception as e:
             STATE.pop(uid, None)
             USERBOT_SETUP.pop(uid, None)
-            await event.respond(f"❌ Failed to send OTP: `{e}`\n\nUse /admin to retry.")
+            await event.respond(
+                f"❌ Failed to send OTP: `{e}`\n\nUse /admin to retry.",
+            )
         return
 
+    # Step 4 — OTP code
     if st == "ub_otp":
         setup = USERBOT_SETUP.get(uid, {})
-        tg    = setup.get("client")
+        tg: TelegramClient = setup.get("client")
         if not tg:
             STATE.pop(uid, None)
-            await event.respond("❌ Session timed out. Use /admin → Setup Userbot to start over.")
+            await event.respond(
+                "❌ Session timed out. Use /admin → Setup Userbot to start over.",
+            )
             return
         try:
             await tg.sign_in(
@@ -415,7 +462,9 @@ async def on_text(event):
             )
             await _finish_userbot_session(uid, tg, setup)
         except PhoneCodeInvalidError:
-            await event.respond("❌ **Invalid OTP.** Please enter the correct code:")
+            await event.respond(
+                "❌ **Invalid OTP.** Please enter the correct code:",
+            )
         except SessionPasswordNeededError:
             STATE[uid] = "ub_2fa"
             await event.respond(
@@ -425,12 +474,15 @@ async def on_text(event):
         except Exception as e:
             STATE.pop(uid, None)
             USERBOT_SETUP.pop(uid, None)
-            await event.respond(f"❌ Sign-in error: `{e}`\n\nUse /admin to retry.")
+            await event.respond(
+                f"❌ Sign-in error: `{e}`\n\nUse /admin to retry.",
+            )
         return
 
+    # Step 4b — 2FA password
     if st == "ub_2fa":
         setup = USERBOT_SETUP.get(uid, {})
-        tg    = setup.get("client")
+        tg: TelegramClient = setup.get("client")
         if not tg:
             STATE.pop(uid, None)
             await event.respond("❌ Session timed out. Use /admin to retry.")
@@ -441,11 +493,13 @@ async def on_text(event):
         except Exception as e:
             STATE.pop(uid, None)
             USERBOT_SETUP.pop(uid, None)
-            await event.respond(f"❌ 2FA error: `{e}`\n\nUse /admin to retry.")
+            await event.respond(
+                f"❌ 2FA error: `{e}`\n\nUse /admin to retry.",
+            )
         return
 
 # ── Photo handler ─────────────────────────────────────────
-@bot.on(events.NewMessage(func=lambda e: e.is_private and bool(e.photo)))
+@bot.on(events.NewMessage(func=lambda e: e.is_private and e.photo))
 async def on_photo(event):
     uid = event.sender_id
     if not is_admin(uid) or STATE.get(uid) != "add_photo":
@@ -492,7 +546,7 @@ async def on_audio(event):
 @bot.on(events.CallbackQuery())
 async def on_callback(event):
     uid = event.sender_id
-    d   = event.data
+    d   = event.data   # bytes
 
     if not is_admin(uid):
         await event.answer("❌ Not authorised!", alert=True)
@@ -504,6 +558,7 @@ async def on_callback(event):
         except Exception:
             pass
 
+    # ── set_channel ───────────────────────────────────────
     if d == b"set_channel":
         await event.answer()
         STATE[uid] = "set_channel"
@@ -516,6 +571,7 @@ async def on_callback(event):
             "⚠️ The bot must be **admin** in that channel!",
         )
 
+    # ── toggle_auto ───────────────────────────────────────
     elif d == b"toggle_auto":
         DB["auto_accept"] = not DB.get("auto_accept", False)
         save_data()
@@ -524,6 +580,7 @@ async def on_callback(event):
         await delete_panel()
         await show_admin_panel(uid)
 
+    # ── add_message ───────────────────────────────────────
     elif d == b"add_message":
         await event.answer()
         STATE[uid] = "add_text"
@@ -536,6 +593,7 @@ async def on_callback(event):
             "💡 All saved messages are sent sequentially to each accepted user.",
         )
 
+    # ── view_msgs ─────────────────────────────────────────
     elif d == b"view_msgs":
         msgs = DB.get("messages", [])
         if not msgs:
@@ -553,6 +611,7 @@ async def on_callback(event):
             "📋 **Saved Messages:**\n\n" + "\n".join(lines),
         )
 
+    # ── clear_msgs ────────────────────────────────────────
     elif d == b"clear_msgs":
         for m in DB.get("messages", []):
             for key in ("photo_path", "audio_path"):
@@ -568,11 +627,13 @@ async def on_callback(event):
         await delete_panel()
         await show_admin_panel(uid)
 
+    # ── refresh ───────────────────────────────────────────
     elif d == b"refresh":
         await event.answer("🔄 Refreshed!")
         await delete_panel()
         await show_admin_panel(uid)
 
+    # ── logout ────────────────────────────────────────────
     elif d == b"logout":
         if uid in DB["admin_sessions"]:
             DB["admin_sessions"].remove(uid)
@@ -585,6 +646,7 @@ async def on_callback(event):
             "Use /admin to log in again.",
         )
 
+    # ── setup_userbot ─────────────────────────────────────
     elif d == b"setup_userbot":
         await event.answer()
         STATE[uid] = "ub_api_id"
@@ -597,13 +659,14 @@ async def on_callback(event):
             "The userbot is the **main sender** for all welcome messages.\n"
             "Since it is a channel admin, Telegram will show:\n"
             "  `[Account Name] is admin of [Your Channel]`\n"
-            "on every message — bypassing the normal DM limits.\n\n"
+            "on every message — **bypassing the 'user must start bot' limit**.\n\n"
             "📋 Get API credentials: https://my.telegram.org\n\n"
             "⚠️ The account you add **MUST be admin** in your channel.\n\n"
             "**Step 1 / 4 — API ID**\n"
             "Send your **API ID** (numbers only):",
         )
 
+    # ── remove_userbot ────────────────────────────────────
     elif d == b"remove_userbot":
         global userbot
         if userbot:
@@ -626,15 +689,17 @@ async def on_callback(event):
 
 # ── Join request handler ──────────────────────────────────
 @bot.on(events.Raw(UpdateBotChatInviteRequester))
-async def on_join_request(update):
+async def on_join_request(update: UpdateBotChatInviteRequester):
     uid  = update.user_id
     peer = update.peer
 
     DB["stats"]["total_requests"] = DB["stats"].get("total_requests", 0) + 1
 
+    # Check if this is the configured channel
     cfg_ch = DB.get("channel_id")
     if cfg_ch:
         incoming_id = peer_to_full_id(peer)
+        # Compare both the bare and full signed ID
         bare_id = getattr(peer, "channel_id", None) or getattr(peer, "chat_id", None)
         if (
             str(incoming_id) != str(cfg_ch)
@@ -646,7 +711,7 @@ async def on_join_request(update):
     if not DB.get("auto_accept", False):
         DB["stats"]["ignored"] = DB["stats"].get("ignored", 0) + 1
         save_data()
-        log.info("⏸  Auto-accept OFF — ignored %s", uid)
+        log.info(f"⏸  Auto-accept OFF — ignored {uid}")
         return
 
     # ── Approve the join request ──────────────────────────
@@ -654,16 +719,16 @@ async def on_join_request(update):
         await bot(HideChatJoinRequestRequest(peer=peer, user_id=uid, approved=True))
         DB["stats"]["accepted"] = DB["stats"].get("accepted", 0) + 1
         save_data()
-        log.info("✅ Approved %s", uid)
+        log.info(f"✅ Approved {uid}")
     except FloodWaitError as fw:
         await asyncio.sleep(fw.seconds + 1)
         try:
             await bot(HideChatJoinRequestRequest(peer=peer, user_id=uid, approved=True))
         except Exception as e:
-            log.error("Retry approve failed for %s: %s", uid, e)
+            log.error(f"Retry approve failed for {uid}: {e}")
             return
     except Exception as e:
-        log.error("Approve error for %s: %s", uid, e)
+        log.error(f"Approve error for {uid}: {e}")
         save_data()
         return
 
@@ -680,9 +745,9 @@ async def on_join_request(update):
         audio_path = msg.get("audio_path") or None
         sent       = False
 
-        # PRIMARY: userbot (channel admin) sends DM.
-        # Telegram shows "[Account] is admin of [Channel]" badge.
-        # Works even if user never started the bot.
+        # PRIMARY: Always use userbot (channel admin account) to send DMs.
+        # This causes Telegram to show "[Userbot Name] is admin of [Channel]"
+        # badge on the message — and bypasses the "user hasn't started bot" limit.
         if userbot:
             try:
                 if photo_path and os.path.exists(photo_path):
@@ -696,10 +761,10 @@ async def on_join_request(update):
                         voice_note=audio_path.endswith(".ogg"),
                     )
                 sent = True
-                log.info("📨 Userbot (admin) DM sent to %s", uid)
+                log.info(f"📨 Userbot (admin) DM sent to {uid}")
 
             except FloodWaitError as fw:
-                log.warning("Userbot FloodWait %ss for %s — retrying", fw.seconds, uid)
+                log.warning(f"Userbot FloodWait {fw.seconds}s for {uid} — retrying")
                 await asyncio.sleep(fw.seconds + 1)
                 try:
                     if photo_path and os.path.exists(photo_path):
@@ -712,24 +777,25 @@ async def on_join_request(update):
                             voice_note=audio_path.endswith(".ogg"),
                         )
                     sent = True
-                    log.info("📨 Userbot DM sent to %s after retry", uid)
+                    log.info(f"📨 Userbot DM sent to {uid} after flood-wait retry")
                 except Exception as e:
-                    log.error("Userbot retry failed for %s: %s", uid, e)
+                    log.error(f"Userbot retry failed for {uid}: {e}")
 
             except UserIsBlockedError:
-                log.warning("Userbot: user %s blocked the userbot account", uid)
-                sent = True
+                log.warning(f"Userbot: user {uid} has blocked the userbot account")
+                sent = True   # user blocked — nothing more we can do
 
             except InputUserDeactivatedError:
-                log.warning("Userbot: user %s account is deactivated", uid)
-                sent = True
+                log.warning(f"Userbot: user {uid} account is deactivated")
+                sent = True   # deactivated — skip fallback too
 
             except Exception as e:
-                log.error("Userbot DM error for %s: %s", uid, e)
+                log.error(f"Userbot DM error for {uid}: {e}")
 
-        # FALLBACK: bot account (only works if user started the bot before)
+        # FALLBACK: If no userbot configured, use the bot account.
+        # Note: this only works if the user has previously started the bot.
         if not sent:
-            log.info("Falling back to bot DM for %s", uid)
+            log.info(f"No userbot active — falling back to bot DM for {uid}")
             try:
                 if photo_path and os.path.exists(photo_path):
                     await bot.send_file(uid, photo_path, caption=txt or None)
@@ -742,17 +808,17 @@ async def on_join_request(update):
                         voice_note=audio_path.endswith(".ogg"),
                     )
                 sent = True
-                log.info("📨 Bot DM sent to %s", uid)
+                log.info(f"📨 Bot DM sent to {uid}")
 
             except (UserIsBlockedError, InputUserDeactivatedError):
-                log.warning("Bot: cannot DM %s — blocked or deactivated", uid)
+                log.warning(f"Bot: cannot DM {uid} — user inactive or blocked bot")
             except FloodWaitError as fw:
                 await asyncio.sleep(fw.seconds + 1)
             except Exception as e:
-                log.warning("Bot DM failed for %s: %s", uid, e)
+                log.warning(f"Bot DM also failed for {uid}: {e}")
 
         if not sent:
-            log.warning("⚠️  All DM methods failed for %s", uid)
+            log.warning(f"⚠️  All DM methods failed for {uid}")
 
         await asyncio.sleep(0.6)
 
@@ -761,14 +827,18 @@ async def on_join_request(update):
 #  MAIN
 # ═══════════════════════════════════════════════════════════
 async def main():
+    # Guard against un-filled config
     if BOT_TOKEN == "YOUR_BOT_TOKEN_HERE" or not BOT_TOKEN:
         print("❌  ERROR: Set BOT_TOKEN at the top of the script.")
+        print("   Get a fresh token from @BotFather on Telegram.")
         return
     if not API_ID:
         print("❌  ERROR: Set API_ID at the top of the script.")
+        print("   Get it from https://my.telegram.org")
         return
     if not API_HASH:
         print("❌  ERROR: Set API_HASH at the top of the script.")
+        print("   Get it from https://my.telegram.org")
         return
 
     os.makedirs(MEDIA_DIR, exist_ok=True)
@@ -783,18 +853,21 @@ async def main():
 ╚══════════════════════════════════════════════════════════════╝
 """)
 
+    # Restore saved userbot session if any
     ub_ok = await start_userbot()
     if ub_ok:
-        print("👤  Userbot: ACTIVE (sends as channel admin)")
+        print("👤  Userbot bridge: ACTIVE")
     else:
-        print("👤  Userbot: not configured  (use /admin → Setup Userbot)")
+        print("👤  Userbot bridge: not configured  (use /admin → Setup Userbot)")
 
+    # Start the bot
     await bot.start(bot_token=BOT_TOKEN)
     me = await bot.get_me()
     print(f"✅  Bot started as @{me.username} (ID: {me.id})")
     print("📡  Listening for join requests…")
     print("─" * 55)
 
+    # Keep running until disconnected / Ctrl+C
     await bot.run_until_disconnected()
 
 
